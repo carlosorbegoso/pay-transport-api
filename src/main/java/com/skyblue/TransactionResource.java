@@ -3,6 +3,7 @@ package com.skyblue;
 import com.skyblue.model.Transaction;
 import com.skyblue.service.ErrorResponse;
 import com.skyblue.service.TransactionService;
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -33,8 +34,17 @@ public class TransactionResource {
 
   @POST
   @Path("/batch/{driverId}")
-  public Multi<Transaction> createBatch(@PathParam("driverId") Long driverId, List<Transaction> transactions) {
-    return service.saveAll(transactions, driverId);
+  @WithSession
+  public Uni<Response> createBatch(@PathParam("driverId") Long driverId, List<Transaction> transactions) {
+    return service.saveAll(transactions, driverId)
+        .collect().asList()
+        .onItem().transform(savedTransactions ->
+            Response.ok(savedTransactions).build())
+        .onFailure().recoverWithItem(throwable ->
+            Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                .entity(new ErrorResponse("Error processing batch: " + throwable.getMessage()))
+                .build()
+        );
   }
 
   @GET
