@@ -12,10 +12,10 @@ import java.util.List;
 @Entity
 @Table(name = "buses")
 public class Bus extends PanacheEntity {
-  @Column(unique = true, nullable = false)
+  @Column(name = "plate_number", unique = true, nullable = false)
   public String plateNumber;
 
-  @Column(nullable = false)
+  @Column(name = "route", nullable = false)
   public String route;
 
   @JsonIgnore

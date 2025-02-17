@@ -16,13 +16,17 @@ public class TransactionRepository implements PanacheRepository<Transaction> {
     return transaction.<Transaction>persist();
   }
 
-  public Multi<Transaction> persistBatch(List<Transaction> transactions) {
-   return Multi.createFrom().iterable(transactions)
-       .onItem().transformToUniAndConcatenate( transaction -> {
-         transaction.id = null;
-         return transaction.<Transaction>persist();
-       });
+  public Uni<List<Transaction>> persistBatch(List<Transaction> transactions) {
+    return Uni.createFrom().item(transactions)
+        .onItem().transformToMulti(batch -> Multi.createFrom().iterable(batch))
+        .onItem().transformToUniAndConcatenate(transaction -> {
+          transaction.id = null;
+          return transaction.<Transaction>persist();
+        })
+        .collect().asList();
   }
+
+
 
   public Multi<Transaction> streamAll() {
     return findAll().list()

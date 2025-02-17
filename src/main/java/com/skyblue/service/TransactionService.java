@@ -10,21 +10,18 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @ApplicationScoped
 public class TransactionService {
-  private static final org.slf4j.Logger log = LoggerFactory.getLogger(TransactionService.class);
   @Inject
   TransactionRepository transactionRepository;
 
   @Inject
   TicketNumberGenerator ticketNumberGenerator;
 
-  private static final int BATCH_SIZE = 50;
   @Inject
   Logger logger;
 
@@ -40,7 +37,8 @@ public class TransactionService {
         .onItem().ifNull().failWith(() -> new DriverNotFoundException(driverId))
         .map(driver -> prepareTransactionWithDriver(transaction, driver));
   }
-  private Transaction prepareTransactionWithDriver(Transaction transaction, Driver driver){
+
+  private Transaction prepareTransactionWithDriver(Transaction transaction, Driver driver) {
     transaction.driver = driver;
     transaction.id = null;
     transaction.timestamp = transaction.timestamp != null ?
@@ -55,24 +53,15 @@ public class TransactionService {
         .onFailure().invoke(error -> logger.error("Failed to persist", error));
   }
 
-
-   public Multi<Transaction> saveAll(List<Transaction> transactions, Long driverId){
+  @WithTransaction
+  public Uni<List<Transaction>> saveAll(List<Transaction> transactions, Long driverId) {
     return Driver.<Driver>findById(driverId)
         .onItem().ifNull().failWith(() -> new DriverNotFoundException(driverId))
-        .onItem().transformToMulti(driver -> processTransactions(transactions, driver));
-   }
-
-
-  private Multi<Transaction> processTransactions(List<Transaction> transactions, Driver driver) {
-    return Multi.createFrom().iterable(transactions)
-        .map(transaction -> prepareTransactionWithDriver(transaction, driver))
-        .group().intoLists().of(BATCH_SIZE)
-        .flatMap(transactionRepository::persistBatch);
-  }
-
-  public Multi<Transaction> streamAll() {
-    return transactionRepository.streamAll()
-        .onFailure().recoverWithCompletion();
+        .onItem().transformToMulti(driver ->
+            Multi.createFrom().iterable(transactions)
+                .map(transaction -> prepareTransactionWithDriver(transaction, driver)))
+        .collect().asList()
+        .chain(preparedTransactions -> transactionRepository.persistBatch(preparedTransactions));
   }
 
 }

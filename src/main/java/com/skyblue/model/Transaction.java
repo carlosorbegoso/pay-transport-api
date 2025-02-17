@@ -17,7 +17,6 @@ public class Transaction extends PanacheEntity {
   @JoinColumn(name = "driver_id", nullable = false)
   @JsonIgnoreProperties({"transactions"})
   public Driver driver;
-
   @Column(name = "ticket_number", unique = true)
   public String ticketNumber;
 

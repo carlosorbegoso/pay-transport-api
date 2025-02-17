@@ -4,7 +4,6 @@ import com.skyblue.model.Transaction;
 import com.skyblue.service.ErrorResponse;
 import com.skyblue.service.TransactionService;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
-import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -37,7 +36,6 @@ public class TransactionResource {
   @WithSession
   public Uni<Response> createBatch(@PathParam("driverId") Long driverId, List<Transaction> transactions) {
     return service.saveAll(transactions, driverId)
-        .collect().asList()
         .onItem().transform(savedTransactions ->
             Response.ok(savedTransactions).build())
         .onFailure().recoverWithItem(throwable ->
@@ -47,10 +45,4 @@ public class TransactionResource {
         );
   }
 
-  @GET
-  @Path("/stream")
-  @Produces(MediaType.SERVER_SENT_EVENTS)
-  public Multi<Transaction> streamTransactions() {
-    return service.streamAll();
-  }
 }
